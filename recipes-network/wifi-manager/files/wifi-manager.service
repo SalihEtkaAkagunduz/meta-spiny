@@ -1,0 +1,19 @@
+[Unit]
+Description=SpinyOS WiFi Manager (AP provisioning + client mode with fallback)
+Documentation=file:///usr/share/doc/wifi-manager/README
+# wlan0 bazen firmware yüklendikten sonra geç gelir.
+# Wants yerine After kullan; aygıt yoksa servis bekler, network-pre'yi engelleme.
+After=network-pre.target device-identity.service
+Wants=network-pre.target device-identity.service
+Before=network.target nss-lookup.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/wifi-manager.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=180
+ReadWritePaths=/etc/spiny /var/log /run /tmp
+
+[Install]
+WantedBy=multi-user.target

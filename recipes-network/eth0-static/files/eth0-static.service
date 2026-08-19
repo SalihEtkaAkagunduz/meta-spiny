@@ -1,0 +1,13 @@
+[Unit]
+Description=Assign static IP to eth0 for direct host cable access
+After=network-pre.target
+Wants=network-pre.target
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/eth0-static.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

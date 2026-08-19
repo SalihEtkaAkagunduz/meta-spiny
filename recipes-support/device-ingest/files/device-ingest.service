@@ -1,0 +1,14 @@
+[Unit]
+Description=Device Metrics Ingest Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/device-ingest.py
+Restart=always
+RestartSec=5
+Environment=DEVICE_INGEST_URL=https://spinyfunc-gsf8g4h2gzf8ecbe.francecentral-01.azurewebsites.net/api/deviceingest?code=3rzXvu4yPasnnbPYFG83gApv0wNJkH3OVMzEsri1zErrAzFuJYPcrA==
+Environment=DEVICE_INGEST_INTERVAL=10
+
+[Install]
+WantedBy=multi-user.target

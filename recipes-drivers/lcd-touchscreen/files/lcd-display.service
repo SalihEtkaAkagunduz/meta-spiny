@@ -1,0 +1,22 @@
+[Unit]
+Description=LCD 3.5 Touchscreen Display Service
+After=multi-user.target lcd-setup.service
+# LCD algılandığında çalış (fb2 device varsa)
+ConditionPathExists=/dev/fb2
+
+[Service]
+Type=simple
+# Check LCD mode - only start if mode is 2 (Touchscreen UI)
+# Mode 1 = Terminal, Mode 2 = Touchscreen UI (default)
+ExecStartPre=/bin/sh -c 'MODE=2; [ -f /var/lib/lcd-mode ] && MODE=$(cat /var/lib/lcd-mode); [ "$MODE" = "1" ] && exit 1 || exit 0'
+ExecStart=/usr/bin/lcd_menu.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# LCD yoksa buzzer-error servisini etkilemesin
+# GPIO17 çakışması olursa servis başlamaz
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,259 @@
+#!/bin/bash
+# LCD Screen Control Utility
+# Controls LCD display and touchscreen functionality
+
+set -e
+
+SCRIPT_NAME="lcd-screen"
+LCD_SERVICE="lcd-display.service"
+SETUP_SERVICE="lcd-setup.service"
+
+show_help() {
+    cat << EOF
+Usage: $SCRIPT_NAME [COMMAND]
+
+LCD Touchscreen Display Control Utility
+
+Commands:
+    start           Start LCD display service
+    stop            Stop LCD display service
+    restart         Restart LCD display service
+    status          Show LCD service status
+    enable          Enable LCD services on boot
+    disable         Disable LCD services on boot
+    enable-hw       Enable LCD hardware (requires reboot)
+    disable-hw      Disable LCD hardware and restore HDMI
+    test            Test LCD display
+    info            Show LCD information
+    menu            Launch LCD menu
+    help            Show this help message
+
+Examples:
+    $SCRIPT_NAME start
+    $SCRIPT_NAME status
+    $SCRIPT_NAME enable-hw    # Enable LCD, then reboot
+    $SCRIPT_NAME disable-hw   # Restore HDMI only
+
+EOF
+}
+
+check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        echo "Error: This command requires root privileges"
+        echo "Please run with sudo or as root"
+        exit 1
+    fi
+}
+
+cmd_start() {
+    check_root
+    echo "Starting LCD display services..."
+    systemctl start $SETUP_SERVICE
+    systemctl start $LCD_SERVICE
+    echo "LCD display started"
+}
+
+cmd_stop() {
+    check_root
+    echo "Stopping LCD display services..."
+    systemctl stop $LCD_SERVICE
+    echo "LCD display stopped"
+}
+
+cmd_restart() {
+    check_root
+    echo "Restarting LCD display services..."
+    systemctl restart $SETUP_SERVICE
+    systemctl restart $LCD_SERVICE
+    echo "LCD display restarted"
+}
+
+cmd_status() {
+    echo "=== LCD Setup Service ==="
+    systemctl status $SETUP_SERVICE --no-pager || true
+    echo ""
+    echo "=== LCD Display Service ==="
+    systemctl status $LCD_SERVICE --no-pager || true
+}
+
+cmd_enable() {
+    check_root
+    echo "Enabling LCD services on boot..."
+    systemctl enable $SETUP_SERVICE
+    systemctl enable $LCD_SERVICE
+    echo "LCD services enabled"
+}
+
+cmd_disable() {
+    check_root
+    echo "Disabling LCD services on boot..."
+    systemctl disable $LCD_SERVICE
+    systemctl disable $SETUP_SERVICE
+    echo "LCD services disabled"
+}
+
+cmd_test() {
+    echo "Testing LCD display..."
+    if command -v python3 >/dev/null 2>&1; then
+        python3 << 'EOF'
+import sys
+try:
+    import tkinter as tk
+    root = tk.Tk()
+    root.title("LCD Test")
+    root.geometry("480x320")
+    root.configure(bg='black')
+    
+    label = tk.Label(root, text="LCD TEST OK\n✓", 
+                    font=('Helvetica', 36, 'bold'),
+                    fg='green', bg='black')
+    label.pack(expand=True)
+    
+    root.after(3000, root.destroy)
+    root.mainloop()
+    print("LCD test completed successfully")
+except ImportError:
+    print("Tkinter not available, testing console output only")
+    print("LCD TEST OK ✓")
+except Exception as e:
+    print(f"LCD test failed: {e}")
+    sys.exit(1)
+EOF
+    else
+        echo "Python3 not available"
+        exit 1
+    fi
+}
+
+cmd_info() {
+    echo "=== LCD Touchscreen Information ==="
+    echo "Display Size: 480x320 (3.5 inch)"
+    echo "Driver: TFT35A"
+    echo ""
+    
+    if [ -f /boot/config.txt ]; then
+        echo "Boot Configuration:"
+        grep -E "(dtoverlay|display)" /boot/config.txt 2>/dev/null || echo "  No LCD configuration found"
+    fi
+    
+    echo ""
+    echo "Services Status:"
+    systemctl is-active $SETUP_SERVICE && echo "  Setup: Active" || echo "  Setup: Inactive"
+    systemctl is-active $LCD_SERVICE && echo "  Display: Active" || echo "  Display: Inactive"
+    
+    echo ""
+    echo "Installed Applications:"
+    [ -f /usr/bin/lcd_menu.py ] && echo "  ✓ LCD Menu" || echo "  ✗ LCD Menu"
+    [ -f /usr/bin/lcd_info.py ] && echo "  ✓ System Info" || echo "  ✗ System Info"
+    [ -f /usr/bin/touch_draw.py ] && echo "  ✓ Touch Draw" || echo "  ✗ Touch Draw"
+}
+
+cmd_menu() {
+    echo "Launching LCD menu..."
+    if [ -x /usr/bin/lcd_menu.py ]; then
+        /usr/bin/lcd_menu.py
+    else
+        echo "Error: LCD menu not found at /usr/bin/lcd_menu.py"
+        exit 1
+    fi
+}
+
+cmd_enable_hw() {
+    check_root
+    echo "Enabling LCD hardware support..."
+    
+    # Create enable flag
+    touch /var/lib/lcd-enabled
+    
+    # Remove setup done flag to force reconfiguration
+    rm -f /var/lib/lcd-setup-done
+    
+    echo "LCD hardware enabled"
+    echo ""
+    echo "IMPORTANT: You must reboot for changes to take effect"
+    echo "Run: sudo reboot"
+}
+
+cmd_disable_hw() {
+    check_root
+    echo "Disabling LCD hardware support..."
+    
+    # Stop services
+    systemctl stop $LCD_SERVICE 2>/dev/null || true
+    
+    # Remove enable flag
+    rm -f /var/lib/lcd-enabled
+    rm -f /var/lib/lcd-setup-done
+    
+    # Remove LCD configuration from config.txt
+    if [ -f /boot/config.txt ]; then
+        echo "Removing LCD configuration from /boot/config.txt..."
+        
+        # Backup first
+        cp /boot/config.txt /boot/config.txt.backup-$(date +%Y%m%d_%H%M%S)
+        
+        # Remove LCD section
+        sed -i '/# 3.5" TFT LCD Display Configuration/,/^$/d' /boot/config.txt
+        sed -i '/^dtoverlay=tft35a/d' /boot/config.txt
+        
+        sync
+    fi
+    
+    echo "LCD hardware disabled"
+    echo "HDMI output will be restored after reboot"
+    echo ""
+    echo "IMPORTANT: You must reboot for changes to take effect"
+    echo "Run: sudo reboot"
+}
+
+# Main command dispatcher
+case "${1:-}" in
+    start)
+        cmd_start
+        ;;
+    stop)
+        cmd_stop
+        ;;
+    restart)
+        cmd_restart
+        ;;
+    status)
+        cmd_status
+        ;;
+    enable)
+        cmd_enable
+        ;;
+    disable)
+        cmd_disable
+        ;;
+    enable-hw)
+        cmd_enable_hw
+        ;;
+    disable-hw)
+        cmd_disable_hw
+        ;;
+    test)
+        cmd_test
+        ;;
+    info)
+        cmd_info
+        ;;
+    menu)
+        cmd_menu
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    "")
+        echo "Error: No command specified"
+        echo "Run '$SCRIPT_NAME help' for usage information"
+        exit 1
+        ;;
+    *)
+        echo "Error: Unknown command '$1'"
+        echo "Run '$SCRIPT_NAME help' for usage information"
+        exit 1
+        ;;
+esac
+
+exit 0

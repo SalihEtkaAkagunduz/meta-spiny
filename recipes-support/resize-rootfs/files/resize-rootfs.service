@@ -1,0 +1,17 @@
+[Unit]
+Description=Resize root filesystem to fill partition
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=local-fs-pre.target shutdown.target
+Conflicts=shutdown.target
+ConditionPathExists=!/var/lib/resize-rootfs/completed
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/resize-rootfs.sh
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=local-fs.target

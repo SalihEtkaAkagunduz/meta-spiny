@@ -1,0 +1,18 @@
+[Unit]
+Description=SpinyOS Device Identity Setup
+Documentation=file:///usr/share/doc/device-identity/README
+# Bu servis avahi, wifi-manager ve network servislerinden ÖNCE çalışmalı
+# ki hostname ve SPINY_DEVICE_ID onlar başlamadan hazır olsun.
+DefaultDependencies=no
+After=local-fs.target systemd-remount-fs.service
+Before=sysinit.target avahi-daemon.service wifi-manager.service network-pre.target hostname.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/device-identity.sh
+# /run/spiny/ dizini tmpfs'te olduğu için her boot çalışması gerekir
+# (RemainAfterExit=yes + oneshot → sonraki servisler bu servis bitmeden başlamaz)
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=LCD First Boot Setup Service
+After=local-fs.target
+Before=multi-user.target
+ConditionPathExists=!/var/lib/lcd-setup-done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/lcd-setup.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

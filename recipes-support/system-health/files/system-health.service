@@ -1,0 +1,14 @@
+[Unit]
+Description=System Health Check Service
+After=network.target local-fs.target
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/system-health-check.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

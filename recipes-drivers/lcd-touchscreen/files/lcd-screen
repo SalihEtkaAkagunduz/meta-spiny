@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""
+LCD Screen Mode Switcher
+Switches between terminal mode and touchscreen UI mode
+"""
+
+import sys
+import os
+import subprocess
+import argparse
+
+MODE_FILE = "/var/lib/lcd-mode"
+DEFAULT_MODE = 1  # Terminal mode
+
+def get_current_mode():
+    """Get current LCD mode"""
+    if os.path.exists(MODE_FILE):
+        try:
+            with open(MODE_FILE, 'r') as f:
+                return int(f.read().strip())
+        except:
+            return DEFAULT_MODE
+    return DEFAULT_MODE
+
+def set_mode(mode):
+    """Set LCD mode and save to file"""
+    try:
+        with open(MODE_FILE, 'w') as f:
+            f.write(str(mode))
+        return True
+    except Exception as e:
+        print(f"ERROR: Failed to save mode: {e}")
+        return False
+
+def is_lcd_present():
+    """Check if LCD is present"""
+    return os.path.exists("/dev/fb2")
+
+def switch_to_terminal():
+    """Switch to HDMI mirroring mode (Mode 1)"""
+    print("Switching to HDMI Mirror Mode...")
+    
+    # Set mode first
+    set_mode(1)
+    
+    # Stop LCD display service if running
+    try:
+        result = subprocess.run(["systemctl", "stop", "lcd-display.service"], 
+                              capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print("✓ Touchscreen UI service stopped")
+    except Exception as e:
+        print(f"Warning: Could not stop service: {e}")
+    
+    # Start framebuffer copy from HDMI to LCD
+    if is_lcd_present():
+        try:
+            # Kill any existing fbcp process
+            subprocess.run(["pkill", "-9", "fbcp"], capture_output=True)
+            
+            # Clear LCD screen first
+            with open('/dev/fb2', 'wb') as fb:
+                fb.write(b'\x00' * (480 * 320 * 2))
+            
+            # Start fbcp to mirror HDMI (fb0) to LCD (fb2)
+            # Run in background and redirect output to avoid blocking
+            # Note: fbcp runs without arguments - it auto-detects framebuffers
+            result = subprocess.Popen(
+                ["/usr/bin/fbcp"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=True
+            )
+            
+            # Wait a moment to check if it started successfully
+            import time
+            time.sleep(0.5)
+            if result.poll() is not None:
+                # Process exited, there was an error
+                stdout, stderr = result.communicate()
+                print(f"ERROR: fbcp failed to start")
+                if stderr:
+                    print(f"  Error: {stderr.decode().strip()}")
+                return False
+            
+            print("✓ HDMI mirror mode activated on LCD")
+            print("  → HDMI output (fb0) is now mirrored to LCD (fb2)")
+            print("  → Whatever you see on HDMI will appear on LCD")
+            
+        except FileNotFoundError:
+            print("ERROR: fbcp not found! Please install fbcp package.")
+            print("  This tool is required to mirror HDMI to LCD.")
+            return False
+        except Exception as e:
+            print(f"Warning: Could not fully activate mirror mode: {e}")
+            return False
+    
+    print("✓ LCD is now in HDMI Mirror Mode (Mode 1)")
+    return True
+
+def switch_to_touchscreen():
+    """Switch to touchscreen UI mode (Mode 2)"""
+    print("Switching to Touchscreen UI Mode...")
+    
+    if not is_lcd_present():
+        print("ERROR: LCD not detected (/dev/fb2 not found)")
+        return False
+    
+    # Set mode first
+    set_mode(2)
+    
+    # Stop fbcp if running (from Mode 1)
+    try:
+        subprocess.run(["pkill", "-9", "fbcp"], capture_output=True)
+        print("✓ HDMI mirroring stopped")
+    except:
+        pass
+    
+    # Restart LCD display service (stop first, then start)
+    try:
+        # Stop service if running
+        subprocess.run(["systemctl", "stop", "lcd-display.service"], 
+                      capture_output=True)
+        
+        # Start service
+        result = subprocess.run(["systemctl", "start", "lcd-display.service"], 
+                              capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            print(f"ERROR: Failed to start lcd-display.service")
+            print(f"Error: {result.stderr}")
+            return False
+        
+        # Check if service is running
+        result = subprocess.run(["systemctl", "is-active", "lcd-display.service"],
+                              capture_output=True, text=True)
+        
+        if result.stdout.strip() == "active":
+            print("✓ Touchscreen UI service started successfully")
+        else:
+            print("Warning: Service may not be running properly")
+            
+    except Exception as e:
+        print(f"ERROR: Failed to start lcd-display.service: {e}")
+        return False
+    
+    print("✓ LCD is now in Touchscreen UI Mode (Mode 2)")
+    return True
+
+def show_status():
+    """Show current LCD mode and status"""
+    current_mode = get_current_mode()
+    
+    print("=" * 50)
+    print("LCD Screen Status")
+    print("=" * 50)
+    
+    # LCD presence
+    if is_lcd_present():
+        print("LCD Status: ✓ Detected (/dev/fb2)")
+    else:
+        print("LCD Status: ✗ Not Detected")
+        return
+    
+    # Current mode
+    print(f"Current Mode: {current_mode}")
+    if current_mode == 1:
+        print("  → HDMI Mirror Mode (fb0 → fb2)")
+    elif current_mode == 2:
+        print("  → Touchscreen UI Mode")
+    else:
+        print("  → Unknown Mode")
+    
+    # Service status
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", "lcd-display.service"],
+            capture_output=True, text=True
+        )
+        service_active = result.stdout.strip() == "active"
+        
+        if service_active:
+            print("LCD Service: ✓ Running")
+        else:
+            print("LCD Service: ✗ Stopped")
+    except:
+        print("LCD Service: ? Unknown")
+    
+    print("=" * 50)
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='LCD Screen Mode Switcher',
+        epilog='Examples:\n'
+               '  lcd-screen -m 1    # Switch to HDMI mirror mode\n'
+               '  lcd-screen -m 2    # Switch to touchscreen UI\n'
+               '  lcd-screen -s      # Show current status\n',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument('-m', '--mode', type=int, choices=[1, 2],
+                       help='LCD mode: 1=HDMI Mirror, 2=Touchscreen UI')
+    parser.add_argument('-s', '--status', action='store_true',
+                       help='Show current mode and status')
+    
+    args = parser.parse_args()
+    
+    # Check if LCD is present
+    if not is_lcd_present():
+        print("ERROR: LCD not detected (/dev/fb2 not found)")
+        print("Please ensure LCD is properly connected and configured")
+        return 1
+    
+    # Show status if requested
+    if args.status:
+        show_status()
+        return 0
+    
+    # Switch mode if requested
+    if args.mode:
+        if args.mode == 1:
+            switch_to_terminal()
+        elif args.mode == 2:
+            if not switch_to_touchscreen():
+                return 1
+        return 0
+    
+    # No arguments provided, show help
+    parser.print_help()
+    print("\nCurrent Status:")
+    show_status()
+    
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())

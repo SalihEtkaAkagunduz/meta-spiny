@@ -1,0 +1,10 @@
+# Ensure persistent log file exists with proper permissions
+# Path Mode UID  GID  Age Argument
+# create classic root dir (some minimal images don't have it)
+d /root 0755 root root -
+# create /home/root so users can easily access logs under /home
+d /home/root 0755 root root -
+f /var/log/wlan-up.log 0640 root root -
+# symlink into both /root and /home/root for convenience
+L /root/log.txt - - - - /var/log/wlan-up.log
+L /home/root/log.txt - - - - /var/log/wlan-up.log

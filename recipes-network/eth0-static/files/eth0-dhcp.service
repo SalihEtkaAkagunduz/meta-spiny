@@ -1,0 +1,13 @@
+[Unit]
+Description=Provide DHCP on eth0 for direct host cable access
+After=eth0-static.service
+Requires=eth0-static.service
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/etc/spiny/eth0-dnsmasq.conf
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

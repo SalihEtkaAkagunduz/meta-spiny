@@ -1,0 +1,15 @@
+{
+  "maxUploadBytes": 104857600,
+  "maxChunkBytes": 262144,
+  "maxParallelOps": 2,
+  "defaultSourcePolicy": "repo-only",
+  "allowUrl": false,
+  "allowedDomains": [
+    "pypi.org",
+    "files.pythonhosted.org",
+    "github.com"
+  ],
+  "blockedPackages": [],
+  "pipBinaryOnly": true,
+  "enableRollback": true
+}

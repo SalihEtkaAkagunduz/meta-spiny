@@ -1,0 +1,31 @@
+{
+  "nodes": {
+    "demo_talker": {
+      "mode": "ros2",
+      "package": "demo_nodes_cpp",
+      "executable": "talker",
+      "node_name": "spiny_demo_talker",
+      "namespace": "/spiny/demo",
+      "parameters": {
+        "use_sim_time": false
+      },
+      "lifecycle_mode": "process",
+      "cwd": "/",
+      "env": {
+        "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp"
+      }
+    },
+    "demo_listener": {
+      "mode": "ros2",
+      "package": "demo_nodes_cpp",
+      "executable": "listener",
+      "node_name": "spiny_demo_listener",
+      "namespace": "/spiny/demo",
+      "lifecycle_mode": "process",
+      "cwd": "/",
+      "env": {
+        "RMW_IMPLEMENTATION": "rmw_fastrtps_cpp"
+      }
+    }
+  }
+}

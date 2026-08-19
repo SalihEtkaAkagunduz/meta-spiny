@@ -1,0 +1,27 @@
+
+# ========================================
+# 3.5" TFT LCD Display Configuration
+# ========================================
+# Uses goodtft tft35a overlay (ILI9486 + ADS7846)
+# Note: Conflicts with VC4 KMS - must be disabled
+
+# LCD overlay with rotation and performance settings
+dtoverlay=tft35a:rotate=90,speed=32000000,fps=30
+
+# Enable required interfaces
+dtparam=spi=on
+dtparam=i2c_arm=on
+
+# Enable UART for debugging
+enable_uart=1
+
+# HDMI fallback configuration
+hdmi_force_hotplug=1
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt 480 320 60 6 0 0 0
+hdmi_drive=2
+
+# Framebuffer console mapping for LCD + HDMI mirroring
+# fbcon=map:10 in cmdline.txt maps console to both fb0 (HDMI) and fb2 (LCD)
+# This allows terminal mode to work on both displays simultaneously

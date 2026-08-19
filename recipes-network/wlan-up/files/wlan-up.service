@@ -1,0 +1,27 @@
+[Unit]
+Description=Bring up wlan0 interface and manage Wi-Fi connection
+Wants=network-pre.target
+After=network-pre.target network.target
+
+[Service]
+# This service runs the helper script which starts wpa_supplicant in background
+# and writes a PID file at /run/wlan-up.pid. Use forking type since the helper
+# backgrounds the real worker process.
+Type=forking
+
+# start/stop helper
+ExecStart=/usr/bin/wlan-up.sh start
+ExecStop=/usr/bin/wlan-up.sh stop
+
+# point systemd to the pid file of wpa_supplicant (written by the script)
+PIDFile=/run/wlan-up.pid
+
+# Restart if the main process exits unexpectedly
+Restart=on-failure
+RestartSec=5
+
+# Give ample time for startup
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

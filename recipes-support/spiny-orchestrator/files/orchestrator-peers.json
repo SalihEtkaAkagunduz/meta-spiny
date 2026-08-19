@@ -1,0 +1,15 @@
+{
+  "peers": {
+    "peer-example": {
+      "url": "ws://192.168.1.50:8765",
+      "token": "REPLACE_WITH_PEER_TOKEN",
+      "allowRemoteControl": false,
+      "allowedActions": [
+        "node.status",
+        "node.start",
+        "node.stop",
+        "node.restart"
+      ]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Nokia 5110 LCD Display Service
+After=multi-user.target nokia-spi-enabler.service
+Requires=nokia-spi-enabler.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/nokia5110-startup.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

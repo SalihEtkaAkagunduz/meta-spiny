@@ -1,0 +1,4 @@
+d /home/root 0755 root root -
+f /var/log/device-ingest.log 0644 root root -
+f /home/root/device-ingest.log 0644 root root -
+d /home/root 0755 root root -

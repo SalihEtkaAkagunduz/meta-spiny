@@ -1,0 +1,18 @@
+[Unit]
+Description=Enable SPI for Nokia 5110 Display
+# Run after filesystems are mounted so /boot (if a separate mount) is available
+After=boot.mount local-fs.target
+Wants=boot.mount
+ConditionPathExists=/usr/sbin/enable-nokia-spi.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/enable-nokia-spi.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+# Don't fail boot if this service fails
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target

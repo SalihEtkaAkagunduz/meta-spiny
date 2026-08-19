@@ -1,0 +1,11 @@
+
+# ========================================
+# Nokia 5110 SPI Configuration
+# ========================================
+# Enable SPI for Nokia 5110 (PCD8544 controller)
+
+# Enable SPI interface
+dtparam=spi=on
+
+# Enable I2C (optional, for other sensors)
+dtparam=i2c_arm=on

@@ -1,0 +1,21 @@
+[Unit]
+Description=LCD Touchscreen Display Service
+After=lcd-setup.service graphical.target
+Requires=lcd-setup.service
+ConditionPathExists=/usr/bin/lcd_menu.py
+ConditionPathExists=/var/lib/lcd-enabled
+
+[Service]
+Type=simple
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/root/.Xauthority"
+ExecStartPre=/bin/sleep 5
+ExecStart=/usr/bin/lcd_menu.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+User=root
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,25 @@
+[Unit]
+Description=Spiny Orchestrator Service
+After=network.target wifi-manager.service device-identity.service
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/spiny-orchestrator.py
+Restart=always
+RestartSec=3
+Environment=SPINY_ORCH_HOST=0.0.0.0
+Environment=SPINY_ORCH_PORT=8765
+Environment=SPINY_ORCH_POLICY_FILE=/etc/spiny/orchestrator-policy.json
+Environment=SPINY_ORCH_AUTH_FILE=/etc/spiny/orchestrator-auth.json
+Environment=SPINY_ORCH_MANIFEST_FILE=/etc/spiny/orchestrator-manifest.json
+Environment=SPINY_ORCH_PEERS_FILE=/etc/spiny/orchestrator-peers.json
+Environment=SPINY_ORCH_UPLOAD_DIR=/tmp/spiny-orchestrator/uploads
+Environment=SPINY_ROS_DISTRO=humble
+Environment=SPINY_ORCH_ROS2_BIN=/opt/ros/humble/bin/ros2
+Environment=SPINY_ORCH_DEFAULT_RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+Environment=SPINY_ORCH_DEFAULT_ROS_DOMAIN_ID=0
+Environment=SPINY_ORCH_DEFAULT_ROS_LOCALHOST_ONLY=0
+
+[Install]
+WantedBy=multi-user.target

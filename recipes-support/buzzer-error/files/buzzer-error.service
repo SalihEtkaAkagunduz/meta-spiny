@@ -1,0 +1,18 @@
+[Unit]
+Description=Buzzer Error Service
+After=syslog.target
+# Don't start if LCD is present (GPIO17 conflict)
+# The service script will check and fail if conflict detected
+# This allows manual GPIO reconfiguration via buzzererror --gpio
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/buzzer-error.sh start
+ExecStop=/usr/sbin/buzzer-error.sh stop
+RemainAfterExit=yes
+# Restart on failure to allow retry after GPIO reconfiguration
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

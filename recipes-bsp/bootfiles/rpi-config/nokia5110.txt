@@ -1,0 +1,14 @@
+
+# ========================================
+# Nokia 5110 LCD Display Configuration
+# ========================================
+# Enable SPI for Nokia 5110 (PCD8544 controller)
+
+# Enable SPI interface
+dtparam=spi=on
+
+# Enable I2C (may be needed for other sensors)
+dtparam=i2c_arm=on
+
+# Enable UART for debugging
+enable_uart=1

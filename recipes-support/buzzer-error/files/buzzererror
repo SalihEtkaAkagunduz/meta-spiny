@@ -1,0 +1,240 @@
+#!/bin/bash
+# Buzzer Error Command
+
+CONFIG_FILE="/etc/buzzer-pin.conf"
+GPIO_PIN=""
+BUZZER_DISABLED="/tmp/buzzer_disabled"
+
+# Check for GPIO conflicts with LCD (fb_ili9486 uses GPIO17)
+check_gpio_conflict() {
+    local pin=$1
+    
+    # Check if LCD is present (fb2 device exists)
+    if [ -e "/dev/fb2" ]; then
+        # Check if fb_ili9486 driver is loaded
+        if lsmod 2>/dev/null | grep -q "fb_ili9486"; then
+            # GPIO17 is used by LCD overlay (tft35a)
+            if [ "$pin" = "17" ]; then
+                echo "ERROR: GPIO17 is currently in use by LCD display (fb_ili9486)"
+                echo "The LCD overlay uses GPIO17. Please use a different GPIO pin."
+                echo "Suggested alternative pins: 22, 23, 24, 25, 27"
+                return 1
+            fi
+        fi
+    fi
+    
+    # Check if GPIO is already exported by another process
+    if [ -d "/sys/class/gpio/gpio$pin" ]; then
+        # Try to determine who owns it
+        echo "WARNING: GPIO$pin is already exported by another process"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Load configuration
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+        GPIO_PIN="$BUZZER_GPIO_PIN"
+    else
+        echo "Configuration file not found: $CONFIG_FILE"
+        echo "Using default GPIO17"
+        GPIO_PIN="17"
+    fi
+}
+
+# Save GPIO configuration
+save_gpio_config() {
+    local pin=$1
+    echo "# Buzzer GPIO pin configuration" > "$CONFIG_FILE"
+    echo "# Updated by buzzererror" >> "$CONFIG_FILE"
+    echo "BUZZER_GPIO_PIN=$pin" >> "$CONFIG_FILE"
+    echo "GPIO configuration saved to $CONFIG_FILE"
+}
+
+# GPIO setup function
+setup_gpio() {
+    # Check for conflicts before setup
+    if ! check_gpio_conflict "$GPIO_PIN"; then
+        echo "Cannot setup GPIO$GPIO_PIN due to conflict"
+        return 1
+    fi
+    
+    if [ ! -d "/sys/class/gpio/gpio$GPIO_PIN" ]; then
+        echo "$GPIO_PIN" > /sys/class/gpio/export 2>/dev/null
+        if [ $? -ne 0 ]; then
+            echo "ERROR: Failed to export GPIO$GPIO_PIN"
+            return 1
+        fi
+        echo "out" > /sys/class/gpio/gpio$GPIO_PIN/direction
+    fi
+    return 0
+}
+
+# Buzzer beep function
+beep() {
+    local duration=${1:-0.1}
+    echo "1" > /sys/class/gpio/gpio$GPIO_PIN/value
+    sleep "$duration"
+    echo "0" > /sys/class/gpio/gpio$GPIO_PIN/value
+}
+
+# Enable buzzer
+enable_buzzer() {
+    if ! setup_gpio; then
+        echo "Failed to enable buzzer"
+        return 1
+    fi
+    rm -f "$BUZZER_DISABLED"
+    echo "Buzzer enabled on GPIO $GPIO_PIN"
+}
+
+# Disable buzzer
+disable_buzzer() {
+    if [ -d "/sys/class/gpio/gpio$GPIO_PIN" ]; then
+        echo "0" > /sys/class/gpio/gpio$GPIO_PIN/value
+        echo "$GPIO_PIN" > /sys/class/gpio/unexport
+    fi
+    touch "$BUZZER_DISABLED"
+    echo "Buzzer disabled"
+}
+
+# Set GPIO pin
+set_gpio_pin() {
+    local new_pin=$1
+    
+    # Validate pin number
+    if ! [[ "$new_pin" =~ ^[0-9]+$ ]]; then
+        echo "ERROR: Invalid GPIO pin number: $new_pin"
+        return 1
+    fi
+    
+    # Check for conflicts
+    if ! check_gpio_conflict "$new_pin"; then
+        return 1
+    fi
+    
+    # Disable current buzzer if active
+    if [ -d "/sys/class/gpio/gpio$GPIO_PIN" ]; then
+        echo "Disabling current buzzer on GPIO$GPIO_PIN"
+        disable_buzzer
+    fi
+    
+    # Save new configuration
+    save_gpio_config "$new_pin"
+    GPIO_PIN="$new_pin"
+    
+    echo "Buzzer GPIO pin changed to GPIO$GPIO_PIN"
+    echo "Note: Restart buzzer-error.service for changes to take effect:"
+    echo "  systemctl restart buzzer-error.service"
+}
+
+# Show help
+show_help() {
+    echo "Buzzer Error Command"
+    echo "Usage: buzzererror [OPTION] [VALUE]"
+    echo ""
+    echo "Options:"
+    echo "  -e, --enable         Enable buzzer"
+    echo "  -d, --disable        Disable buzzer"
+    echo "  -g, --gpio <pin>     Set GPIO pin number (permanently)"
+    echo "  -c, --check          Check current GPIO configuration and conflicts"
+    echo "  -h, --help           Show this help"
+    echo ""
+    echo "Examples:"
+    echo "  buzzererror --enable"
+    echo "  buzzererror -d"
+    echo "  buzzererror --gpio 22       # Change to GPIO22"
+    echo "  buzzererror -g 23           # Change to GPIO23"
+    echo "  buzzererror --check         # Check for conflicts"
+    echo ""
+    echo "Current configuration:"
+    load_config
+    echo "  GPIO Pin: $GPIO_PIN"
+    echo "  Config file: $CONFIG_FILE"
+    if [ -f "$BUZZER_DISABLED" ]; then
+        echo "  Status: DISABLED"
+    else
+        echo "  Status: ENABLED"
+    fi
+}
+
+# Check status
+check_status() {
+    load_config
+    echo "Buzzer Configuration Check"
+    echo "=========================="
+    echo "GPIO Pin: $GPIO_PIN"
+    echo "Config file: $CONFIG_FILE"
+    echo ""
+    
+    if [ -f "$BUZZER_DISABLED" ]; then
+        echo "Buzzer Status: DISABLED"
+    else
+        echo "Buzzer Status: ENABLED"
+    fi
+    echo ""
+    
+    # Check for LCD
+    if [ -e "/dev/fb2" ]; then
+        echo "LCD Status: DETECTED (/dev/fb2 exists)"
+        if lsmod 2>/dev/null | grep -q "fb_ili9486"; then
+            echo "LCD Driver: fb_ili9486 (uses GPIO17)"
+        fi
+    else
+        echo "LCD Status: NOT DETECTED"
+    fi
+    echo ""
+    
+    # Check GPIO availability
+    if [ -d "/sys/class/gpio/gpio$GPIO_PIN" ]; then
+        echo "GPIO$GPIO_PIN: Already exported"
+        if [ -f "/sys/class/gpio/gpio$GPIO_PIN/direction" ]; then
+            direction=$(cat /sys/class/gpio/gpio$GPIO_PIN/direction)
+            echo "  Direction: $direction"
+        fi
+    else
+        echo "GPIO$GPIO_PIN: Available"
+    fi
+    echo ""
+    
+    # Conflict check
+    if check_gpio_conflict "$GPIO_PIN"; then
+        echo "Conflict Check: OK - No conflicts detected"
+    else
+        echo "Conflict Check: WARNING - Conflicts detected (see above)"
+    fi
+}
+
+# Parse arguments
+load_config
+
+case "$1" in
+    -e|--enable)
+        enable_buzzer
+        ;;
+    -d|--disable)
+        disable_buzzer
+        ;;
+    -g|--gpio)
+        if [ -z "$2" ]; then
+            echo "ERROR: GPIO pin number required"
+            echo "Usage: buzzererror --gpio <pin>"
+            exit 1
+        fi
+        set_gpio_pin "$2"
+        ;;
+    -c|--check)
+        check_status
+        ;;
+    -h|--help|"")
+        show_help
+        ;;
+    *)
+        echo "Invalid option: $1"
+        show_help
+        exit 1
+        ;;
+esac
